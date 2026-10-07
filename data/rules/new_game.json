@@ -1,0 +1,19 @@
+{
+  "farm_name": "새벽들 목장",
+  "horses": [
+    {
+      "name": "Black Arrow",
+      "sex": "male",
+      "age_years": 3,
+      "stats": [58, 47, 55, 49, 52, 45],
+      "potential": [80, 73, 79, 76, 78, 72]
+    },
+    {
+      "name": "Silver Mist",
+      "sex": "female",
+      "age_years": 3,
+      "stats": [48, 58, 46, 51, 50, 53],
+      "potential": [74, 82, 73, 78, 77, 80]
+    }
+  ]
+}

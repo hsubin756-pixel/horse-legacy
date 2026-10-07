@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "simulation_version": 1,
+  "current_week": 0,
+  "next_id": 4,
+  "rng_seed": "42",
+  "rng_state": "-123456789123456789",
+  "selected_horse_id": "horse-3",
+  "farm": {
+    "id": "farm-1",
+    "name": "새벽들 목장",
+    "horse_ids": [
+      "horse-2",
+      "horse-3"
+    ],
+    "money": 0,
+    "reputation": 0
+  },
+  "horses": [
+    {
+      "id": "horse-2",
+      "name": "Black Arrow",
+      "sex": 0,
+      "birth_week": -156,
+      "father_id": "",
+      "mother_id": "",
+      "breeder_farm_id": "",
+      "owner_farm_id": "farm-1",
+      "life_stage": 1,
+      "career_status": 0,
+      "growth_type": "normal",
+      "stats": [
+        58,
+        47,
+        55,
+        49,
+        52,
+        45
+      ],
+      "potential": [
+        80,
+        73,
+        79,
+        76,
+        78,
+        72
+      ],
+      "fitness": 80,
+      "fatigue": 0,
+      "stress": 0,
+      "injury_weeks": 0,
+      "starts": 0,
+      "wins": 0,
+      "earnings": 0,
+      "race_result_ids": []
+    },
+    {
+      "id": "horse-3",
+      "name": "Silver Mist",
+      "sex": 1,
+      "birth_week": -156,
+      "father_id": "",
+      "mother_id": "",
+      "breeder_farm_id": "",
+      "owner_farm_id": "farm-1",
+      "life_stage": 1,
+      "career_status": 0,
+      "growth_type": "normal",
+      "stats": [
+        48,
+        58,
+        46,
+        51,
+        50,
+        53
+      ],
+      "potential": [
+        74,
+        82,
+        73,
+        78,
+        77,
+        80
+      ],
+      "fitness": 80,
+      "fatigue": 0,
+      "stress": 0,
+      "injury_weeks": 0,
+      "starts": 0,
+      "wins": 0,
+      "earnings": 0,
+      "race_result_ids": []
+    }
+  ]
+}
