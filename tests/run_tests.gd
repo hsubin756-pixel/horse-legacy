@@ -4,6 +4,10 @@ var checks: int = 0
 var failures: int = 0
 var test_directory: String
 
+class MissingDataSession extends GameSession:
+	func new_game(seed_value: int = -1, _config_path: String = NewGameFactory.DEFAULT_CONFIG) -> bool:
+		return super.new_game(seed_value, "res://missing-new-game-data.json")
+
 func _initialize() -> void:
 	_run.call_deferred()
 
@@ -25,7 +29,10 @@ func _run() -> void:
 	_test_session()
 	var persistence = preload("res://tests/persistence_tests.gd").new()
 	persistence.run(check_result, test_directory)
+	var time_tests = preload("res://tests/time_tests.gd").new()
+	time_tests.run(check_result, test_directory)
 	await _test_ui()
+	await _test_start_feedback()
 	print("Horse Legacy: %d checks, %d passed, %d failed" % [checks, checks - failures, failures])
 	if failures == 0:
 		for file_name: String in DirAccess.get_files_at(test_directory):
@@ -161,6 +168,7 @@ func _test_ui() -> void:
 	screen.restart_dialog.get_ok_button().pressed.emit()
 	await process_frame
 	check_result(screen.session.state != original and screen.session.state.horses.size() == 2 and screen.horse_buttons.size() == 2, "Confirmed restart replaces data and rebuilds the list without duplicates")
+	await _test_weekly_ui(screen)
 	await _test_persistence_ui(screen)
 	screen.queue_free()
 	await process_frame
@@ -175,6 +183,57 @@ func _test_ui() -> void:
 	check_result(screen.ranch_screen.visible and screen.session.state != null and screen.details.displayed_horse_id == screen.session.selected_horse_id, "Continue button restores the saved ranch and selection")
 	screen.queue_free()
 	await process_frame
+
+func _test_start_feedback() -> void:
+	var scene: PackedScene = load("res://scenes/main.tscn")
+	var screen := scene.instantiate() as MainScreen
+	screen.session = MissingDataSession.new()
+	screen.session.saves = SaveManager.new(test_directory.path_join("missing-data.json"))
+	root.add_child(screen)
+	await process_frame
+	await process_frame
+	await _click(screen.start_button)
+	check_result(screen.startup_error_dialog.visible and screen.startup_error_dialog.dialog_text.contains("누락된 파일"), "Failed new game opens a visible diagnostic dialog")
+	check_result(screen.title_screen.visible and screen.session.state == null and not screen.start_button.disabled, "Failed startup keeps the title usable for retry")
+	screen.queue_free()
+	await process_frame
+	screen = scene.instantiate() as MainScreen
+	screen.session.saves = SaveManager.new(test_directory.path_join("keyboard.json"))
+	root.add_child(screen)
+	await process_frame
+	await process_frame
+	screen.start_button.grab_focus()
+	var key := InputEventKey.new()
+	key.keycode = KEY_ENTER
+	key.pressed = true
+	root.push_input(key)
+	key = InputEventKey.new()
+	key.keycode = KEY_ENTER
+	key.pressed = false
+	root.push_input(key)
+	await process_frame
+	check_result(screen.session.state != null and screen.ranch_screen.visible, "Enter activates the focused New Game button")
+	screen.queue_free()
+	await process_frame
+
+func _test_weekly_ui(screen: MainScreen) -> void:
+	var selected: String = screen.session.selected_horse_id
+	await _click(screen.week_controls.next_week_button)
+	check_result(screen.session.state.current_week == 1 and screen.date_label.text.contains("2주") and screen.session.selected_horse_id == selected, "One-week button updates date and preserves selected horse")
+	screen.week_controls.next_week_button.pressed.emit()
+	check_result(screen.session.state.current_week == 1, "Rapid duplicate button activation is ignored")
+	check_result(screen.week_controls.report_label.visible and screen.details.stat_values[0].text.contains(".1"), "Weekly growth appears in the report and decimal stat display")
+	await create_timer(0.4).timeout
+	await _click(screen.week_controls.four_weeks_button)
+	check_result(screen.week_controls.confirm.visible and screen.session.state.current_week == 1, "Four-week button asks before advancing")
+	screen.week_controls.confirm.get_cancel_button().pressed.emit()
+	await process_frame
+	check_result(screen.session.state.current_week == 1, "Cancelling multiple weeks preserves progress")
+	await _click(screen.week_controls.four_weeks_button)
+	screen.week_controls.confirm.get_ok_button().pressed.emit()
+	await process_frame
+	check_result(screen.session.state.current_week == 5 and screen.week_controls.report_label.visible, "Confirming four weeks runs and reports all four ticks")
+	await _capture("weekly")
 
 func _test_persistence_ui(screen: MainScreen) -> void:
 	check_result(screen.load_button.disabled and screen.recovery_button.disabled, "Load and recovery are disabled when their files do not exist")

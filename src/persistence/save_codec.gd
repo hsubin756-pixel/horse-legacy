@@ -17,7 +17,7 @@ static func encode(state: GameState, selected_id: String) -> Dictionary:
 		entry.race_result_ids = horse.race_result_ids.duplicate()
 		horse_data.append(entry)
 	return {
-		"schema_version": GameState.SCHEMA_VERSION, "simulation_version": 1,
+		"schema_version": GameState.SCHEMA_VERSION, "simulation_version": GameState.SIMULATION_VERSION,
 		"current_week": state.current_week, "next_id": state.next_id,
 		"rng_seed": str(state.rng.seed), "rng_state": str(state.rng.state),
 		"selected_horse_id": selected_id,

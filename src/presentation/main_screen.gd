@@ -20,6 +20,8 @@ var recovery_button: Button
 var title_recovery_button: Button
 var file_dialog: ConfirmationDialog
 var pending_file_action: String = ""
+var week_controls: WeekControls
+var startup_error_dialog: AcceptDialog
 
 func _ready() -> void:
 	theme = RanchTheme.create()
@@ -58,8 +60,12 @@ func _ready() -> void:
 	file_dialog.confirmed.connect(_perform_file_action)
 	file_dialog.canceled.connect(func() -> void: pending_file_action = "")
 	add_child(file_dialog)
+	startup_error_dialog = AcceptDialog.new()
+	startup_error_dialog.title = "새 게임을 시작하지 못했습니다"
+	add_child(startup_error_dialog)
 	session.game_started.connect(_on_game_started)
 	session.horse_selected.connect(_on_horse_selected)
+	session.weeks_advanced.connect(_on_weeks_advanced)
 	_update_file_buttons()
 	start_button.grab_focus()
 
@@ -78,6 +84,7 @@ func _build_title(parent: VBoxContainer) -> void:
 	body.add_child(intro)
 	start_button = Button.new()
 	start_button.text = "새 게임 시작"
+	start_button.tooltip_text = "클릭하거나 버튼을 선택한 뒤 Enter를 누르세요."
 	start_button.custom_minimum_size = Vector2(240, 60)
 	start_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	start_button.pressed.connect(_start_game)
@@ -126,6 +133,9 @@ func _build_ranch(parent: VBoxContainer) -> void:
 	recovery_button.text = "백업 복구"
 	recovery_button.pressed.connect(_request_file_action.bind("recover"))
 	actions.add_child(recovery_button)
+	week_controls = WeekControls.new()
+	week_controls.advance_requested.connect(_advance_weeks)
+	ranch_screen.add_child(week_controls)
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 24)
 	ranch_screen.add_child(body)
@@ -140,16 +150,30 @@ func _build_ranch(parent: VBoxContainer) -> void:
 	body.add_child(details)
 
 func _start_game() -> void:
-	if not session.new_game():
+	print("Horse Legacy: new game requested")
+	if start_button.disabled:
+		return
+	start_button.disabled = true
+	restart_button.disabled = true
+	var started: bool = session.new_game()
+	start_button.disabled = false
+	restart_button.disabled = false
+	if not started:
 		error_label.add_theme_color_override("font_color", Color("ffc6a0"))
-		error_label.text = "새 게임 데이터를 읽지 못했습니다. data/rules/new_game.json을 확인해 주세요."
+		error_label.text = session.last_start_error
 		error_label.show()
+		startup_error_dialog.dialog_text = session.last_start_error + "\nGodot " + Engine.get_version_info().string
+		startup_error_dialog.popup_centered(Vector2i(600, 230))
+		print("Horse Legacy: start failed: ", startup_error_dialog.dialog_text)
+	else:
+		print("Horse Legacy: ranch opened")
 
 func _on_game_started() -> void:
 	error_label.hide()
 	_update_file_buttons()
 	title_screen.hide()
 	ranch_screen.show()
+	week_controls.refresh(session.state, true)
 	farm_label.text = session.state.player_farm.name
 	var week: int = session.state.current_week
 	date_label.text = "목장 %d년 · %d주  /  보유 말 %d마리" % [floori(float(week) / GameState.WEEKS_PER_YEAR) + 1, week % GameState.WEEKS_PER_YEAR + 1, session.state.player_farm.horse_ids.size()]
@@ -171,6 +195,17 @@ func _on_game_started() -> void:
 		horse_list.add_child(button)
 		horse_buttons[horse.id] = button
 	horse_buttons[session.selected_horse_id].grab_focus()
+
+func _advance_weeks(weeks: int, expected_week: int) -> void:
+	var result := session.advance_weeks(weeks, expected_week)
+	error_label.add_theme_color_override("font_color", RanchTheme.GOLD if result.ok else Color("ffc6a0"))
+	error_label.text = result.message
+	error_label.show()
+
+func _on_weeks_advanced(result: Dictionary) -> void:
+	_on_game_started()
+	_on_horse_selected(session.selected_horse_id)
+	week_controls.show_report(result)
 
 func _select_horse(horse_id: String) -> void:
 	session.select_horse(horse_id)

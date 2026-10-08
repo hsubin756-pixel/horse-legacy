@@ -72,7 +72,7 @@ func _codec_checks() -> void:
 		"selected unowned ancestor": func(d: Dictionary) -> void: d.selected_horse_id = d.horses[2].id,
 		"RNG int overflow": func(d: Dictionary) -> void: d.rng_state = "9223372036854775808",
 		"RNG numeric precision loss": func(d: Dictionary) -> void: d.rng_state = 123456,
-		"unsupported simulation": func(d: Dictionary) -> void: d.simulation_version = 2,
+		"unsupported simulation": func(d: Dictionary) -> void: d.simulation_version = GameState.SIMULATION_VERSION + 1,
 		"dangling race result": func(d: Dictionary) -> void: d.horses[0].race_result_ids.append("race-missing"),
 	}
 	for description: String in mutations:

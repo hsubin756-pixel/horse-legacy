@@ -3,6 +3,7 @@ extends RefCounted
 
 const WEEKS_PER_YEAR: int = 52
 const SCHEMA_VERSION: int = 1
+const SIMULATION_VERSION: int = 2
 var current_week: int = 0
 var next_id: int = 1
 var horses: Dictionary[String, Horse] = {}

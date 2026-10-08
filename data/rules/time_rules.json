@@ -1,0 +1,13 @@
+{
+  "adult_age_years": 3,
+  "rest_fitness": 5.0,
+  "rest_fatigue": 12.0,
+  "rest_stress": 8.0,
+  "growth_fatigue_limit": 60.0,
+  "weekly_decline": 0.05,
+  "growth": {
+    "early": {"growth_until": 4, "decline_from": 5, "weekly_gain": 0.15},
+    "normal": {"growth_until": 6, "decline_from": 7, "weekly_gain": 0.10},
+    "late": {"growth_until": 8, "decline_from": 9, "weekly_gain": 0.075}
+  }
+}

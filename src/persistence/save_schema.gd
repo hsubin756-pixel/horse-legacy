@@ -16,7 +16,8 @@ static func validate(value: Variant) -> String:
 		return "저장 형식 버전이 없거나 잘못되었습니다."
 	if d.schema_version != GameState.SCHEMA_VERSION:
 		return "지원하지 않는 저장 형식 버전입니다. 파일을 변경하지 않았습니다."
-	if d.get("simulation_version") != 1 or not number(d.get("simulation_version"), 1, 1, true):
+	# Version 1 predates weekly simulation; its state requires no field conversion.
+	if not number(d.get("simulation_version"), 1, GameState.SIMULATION_VERSION, true):
 		return "지원하지 않는 시뮬레이션 버전입니다."
 	if not exact_keys(d, ["schema_version", "simulation_version", "current_week", "next_id", "rng_seed", "rng_state", "selected_horse_id", "farm", "horses"]):
 		return "저장 파일에 필수 항목이 없거나 알 수 없는 항목이 있습니다."

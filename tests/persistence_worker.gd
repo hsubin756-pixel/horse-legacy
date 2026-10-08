@@ -11,6 +11,9 @@ func _initialize() -> void:
 	var path: String = args[1]
 	if mode == "write":
 		var session: GameSession = Fixture.session_for_test(path)
+		if not session.advance_weeks(4).ok:
+			quit(1)
+			return
 		var result := session.save_game()
 		if not result.ok:
 			push_error(result.message)
@@ -50,7 +53,7 @@ func _initialize() -> void:
 		if session.state.horses.has(next_id) or not session.select_horse(session.state.player_farm.horse_ids[0]):
 			quit(1)
 			return
-		if not session.save_game().ok or not session.load_game().ok:
+		if not session.advance_weeks(1).ok or not session.save_game().ok or not session.load_game().ok:
 			quit(1)
 			return
 		print("Reader restored all fields and RNG, continued selection/ID allocation, then saved and loaded again.")
