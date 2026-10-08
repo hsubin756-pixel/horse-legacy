@@ -97,7 +97,7 @@ func run(check: Callable, directory: String) -> void:
 	var legacy_advanced := legacy.advance_weeks(1)
 	var legacy_saved := legacy.save_game()
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(legacy.saves.path))
-	check.call(legacy_advanced.ok and legacy_saved.ok and data.schema_version == 1 and data.simulation_version == 2 and FileAccess.get_file_as_bytes(legacy.saves.path + ".bak") == old_bytes, "Legacy save advances under simulation 2 and retains its original as backup")
+	check.call(legacy_advanced.ok and legacy_saved.ok and data.schema_version == GameState.SCHEMA_VERSION and data.simulation_version == GameState.SIMULATION_VERSION and FileAccess.get_file_as_bytes(legacy.saves.path + ".bak") == old_bytes, "Legacy save advances under current simulation and retains its original as backup")
 
 func _snapshot(session: GameSession) -> String:
 	return JSON.stringify(SaveCodec.encode(session.state, session.selected_horse_id), "", true, true)

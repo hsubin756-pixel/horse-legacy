@@ -23,7 +23,7 @@ func _ready() -> void:
 	four_weeks_button.text = "4주 진행…"
 	four_weeks_button.pressed.connect(_request_four_weeks)
 	actions.add_child(four_weeks_button)
-	var hint := RanchTheme.label("이번 주: 모두 휴식 · 훈련과 경주는 이후 추가됩니다.", 14, RanchTheme.MUTED)
+	var hint := RanchTheme.label("배정한 훈련은 첫 주에만 적용 · 미배정 말은 휴식", 14, RanchTheme.MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(hint)
 	report_label = RanchTheme.label("", 14)
@@ -32,7 +32,7 @@ func _ready() -> void:
 	add_child(report_label)
 	confirm = ConfirmationDialog.new()
 	confirm.title = "4주 진행"
-	confirm.dialog_text = "모든 말이 휴식하며 4주를 보냅니다.\n성장·회복과 나이 변화가 매주 반영됩니다. 계속할까요?"
+	confirm.dialog_text = "첫 주에는 배정한 훈련을 수행하고, 이후 3주는 모두 휴식합니다.\n성장·회복과 나이 변화가 매주 반영됩니다. 계속할까요?"
 	confirm.ok_button_text = "4주 진행"
 	confirm.cancel_button_text = "돌아가기"
 	confirm.confirmed.connect(func() -> void: _submit(4, _pending_week))
@@ -83,7 +83,7 @@ func show_report(result: Dictionary) -> void:
 			parts.append("성마가 되었습니다")
 		if change.healed:
 			parts.append("부상 회복")
-		lines.append(change.name + ": " + " · ".join(parts))
+		lines.append(change.name + ": " + change.action + " · " + " · ".join(parts))
 	if result.changes.size() > 4:
 		lines.append("외 %d마리에도 주간 변화가 반영되었습니다." % (result.changes.size() - 4))
 	report_label.text = "\n".join(lines)

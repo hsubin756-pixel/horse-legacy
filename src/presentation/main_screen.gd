@@ -22,6 +22,7 @@ var file_dialog: ConfirmationDialog
 var pending_file_action: String = ""
 var week_controls: WeekControls
 var startup_error_dialog: AcceptDialog
+var training_controls: TrainingControls
 
 func _ready() -> void:
 	theme = RanchTheme.create()
@@ -66,6 +67,7 @@ func _ready() -> void:
 	session.game_started.connect(_on_game_started)
 	session.horse_selected.connect(_on_horse_selected)
 	session.weeks_advanced.connect(_on_weeks_advanced)
+	session.training_changed.connect(func() -> void: training_controls.refresh(session.selected_horse(), session.state))
 	_update_file_buttons()
 	start_button.grab_focus()
 
@@ -136,6 +138,9 @@ func _build_ranch(parent: VBoxContainer) -> void:
 	week_controls = WeekControls.new()
 	week_controls.advance_requested.connect(_advance_weeks)
 	ranch_screen.add_child(week_controls)
+	training_controls = TrainingControls.new()
+	training_controls.assignment_requested.connect(_assign_training)
+	ranch_screen.add_child(training_controls)
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 24)
 	ranch_screen.add_child(body)
@@ -212,7 +217,15 @@ func _select_horse(horse_id: String) -> void:
 
 func _on_horse_selected(horse_id: String) -> void:
 	details.show_horse(session.selected_horse(), session.state)
+	training_controls.refresh(session.selected_horse(), session.state)
 	horse_buttons[horse_id].set_pressed_no_signal(true)
+
+func _assign_training(horse_id: String, program: String) -> void:
+	var result := session.assign_training(horse_id, program)
+	training_controls.refresh(session.selected_horse(), session.state)
+	error_label.text = result.message
+	error_label.add_theme_color_override("font_color", RanchTheme.GOLD if result.ok else Color("ffc6a0"))
+	error_label.show()
 
 func _update_file_buttons() -> void:
 	continue_button.disabled = not session.saves.has_save()

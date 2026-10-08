@@ -31,6 +31,8 @@ func _run() -> void:
 	persistence.run(check_result, test_directory)
 	var time_tests = preload("res://tests/time_tests.gd").new()
 	time_tests.run(check_result, test_directory)
+	var training_tests = preload("res://tests/training_tests.gd").new()
+	training_tests.run(check_result, test_directory)
 	await _test_ui()
 	await _test_start_feedback()
 	print("Horse Legacy: %d checks, %d passed, %d failed" % [checks, checks - failures, failures])
@@ -117,6 +119,12 @@ func _test_session() -> void:
 
 func _click(button: Button) -> void:
 	await process_frame
+	var ancestor: Node = button.get_parent()
+	while ancestor != null:
+		if ancestor is ScrollContainer:
+			ancestor.ensure_control_visible(button)
+		ancestor = ancestor.get_parent()
+	await process_frame
 	var position: Vector2 = button.get_global_rect().get_center()
 	var motion := InputEventMouseMotion.new()
 	motion.position = position
@@ -169,6 +177,7 @@ func _test_ui() -> void:
 	await process_frame
 	check_result(screen.session.state != original and screen.session.state.horses.size() == 2 and screen.horse_buttons.size() == 2, "Confirmed restart replaces data and rebuilds the list without duplicates")
 	await _test_weekly_ui(screen)
+	await _test_training_ui(screen)
 	await _test_persistence_ui(screen)
 	screen.queue_free()
 	await process_frame
@@ -235,6 +244,31 @@ func _test_weekly_ui(screen: MainScreen) -> void:
 	check_result(screen.session.state.current_week == 5 and screen.week_controls.report_label.visible, "Confirming four weeks runs and reports all four ticks")
 	await _capture("weekly")
 
+func _test_training_ui(screen: MainScreen) -> void:
+	await create_timer(0.4).timeout
+	var first: String = screen.session.selected_horse_id
+	var second: String = screen.session.state.player_farm.horse_ids[1]
+	var speed: float = screen.session.selected_horse().stats.values[&"speed"]
+	await _click(screen.training_controls.buttons["sprint"])
+	check_result(screen.session.state.training_assignments.get(first) == "sprint" and screen.training_controls.heading.text.contains("단거리"), "Clicking training assigns selected horse and updates UI")
+	await _click(screen.horse_buttons[second])
+	check_result(screen.training_controls.buttons["rest"].button_pressed, "Switching horse shows that horse's independent plan")
+	await _click(screen.training_controls.buttons["mental"])
+	await _click(screen.horse_buttons[first])
+	check_result(screen.training_controls.buttons["sprint"].button_pressed and screen.session.state.training_assignments.size() == 2, "Horse switching preserves both training plans")
+	await _capture("training")
+	await _click(screen.week_controls.next_week_button)
+	check_result(screen.session.selected_horse().stats.values[&"speed"] > speed + 0.5 and screen.training_controls.buttons["rest"].button_pressed and screen.week_controls.report_label.text.contains("단거리 훈련"), "Weekly button applies training, reports action and resets plan to rest")
+	screen.session.selected_horse().fatigue = 80
+	screen.session.select_horse(first)
+	check_result(screen.training_controls.info.text.contains("과로 상태"), "Overwork warning shown before training selection")
+	screen.session.selected_horse().injury_weeks = 1
+	screen.session.select_horse(first)
+	check_result(screen.training_controls.buttons["sprint"].disabled and not screen.training_controls.buttons["rest"].disabled, "Injured horse UI disables training and keeps rest available")
+	screen.session.selected_horse().injury_weeks = 0
+	screen.session.select_horse(first)
+	await _click(screen.training_controls.buttons["endurance"])
+
 func _test_persistence_ui(screen: MainScreen) -> void:
 	check_result(screen.load_button.disabled and screen.recovery_button.disabled, "Load and recovery are disabled when their files do not exist")
 	var second_id: String = screen.session.state.player_farm.horse_ids[1]
@@ -269,6 +303,7 @@ func _test_persistence_ui(screen: MainScreen) -> void:
 	screen.file_dialog.get_ok_button().pressed.emit()
 	await process_frame
 	check_result(screen.session.state.current_week == 54 and screen.session.selected_horse_id == second_id and screen.details.displayed_horse_id == second_id, "Confirmed load restores time, selection and details together")
+	check_result(screen.session.state.training_assignments.get(screen.session.state.player_farm.horse_ids[0]) == "endurance" and screen.training_controls.buttons["rest"].button_pressed, "UI load restores pending training and shows selected horse's own plan")
 	check_result(screen.session.state.horses.size() == 3 and screen.date_label.text.contains("보유 말 2마리"), "Historical ancestors are restored without inflating the owned horse count")
 	await _capture("loaded")
 	active = screen.session.state

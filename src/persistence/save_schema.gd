@@ -14,12 +14,15 @@ static func validate(value: Variant) -> String:
 	var d: Dictionary = value
 	if not number(d.get("schema_version"), 1, MAX_INTEGER, true):
 		return "저장 형식 버전이 없거나 잘못되었습니다."
-	if d.schema_version != GameState.SCHEMA_VERSION:
+	if d.schema_version > GameState.SCHEMA_VERSION:
 		return "지원하지 않는 저장 형식 버전입니다. 파일을 변경하지 않았습니다."
-	# Version 1 predates weekly simulation; its state requires no field conversion.
+	# Schema 1 has no assignments; decoding supplies the empty default.
 	if not number(d.get("simulation_version"), 1, GameState.SIMULATION_VERSION, true):
 		return "지원하지 않는 시뮬레이션 버전입니다."
-	if not exact_keys(d, ["schema_version", "simulation_version", "current_week", "next_id", "rng_seed", "rng_state", "selected_horse_id", "farm", "horses"]):
+	var fields: Array = ["schema_version", "simulation_version", "current_week", "next_id", "rng_seed", "rng_state", "selected_horse_id", "farm", "horses"]
+	if d.schema_version >= 2:
+		fields.append("training_assignments")
+	if not exact_keys(d, fields):
 		return "저장 파일에 필수 항목이 없거나 알 수 없는 항목이 있습니다."
 	if not number(d.current_week, 0, MAX_INTEGER, true) or not number(d.next_id, 1, MAX_INTEGER, true):
 		return "날짜 또는 다음 ID가 잘못되었습니다."
@@ -62,6 +65,13 @@ static func validate(value: Variant) -> String:
 	for horse_id: String in owned:
 		if not horses.has(horse_id):
 			return "보유 말의 상세 기록이 없습니다."
+	if d.schema_version >= 2:
+		if not d.training_assignments is Dictionary or d.training_assignments.size() > owned.size():
+			return "훈련 배정 목록이 잘못되었습니다."
+		for horse_id: Variant in d.training_assignments:
+			var program: Variant = d.training_assignments[horse_id]
+			if not horse_id is String or not owned.has(horse_id) or not program is String or not program in TrainingSystem.PROGRAMS.slice(1):
+				return "훈련 배정의 말 또는 훈련 종류가 잘못되었습니다."
 	for h: Dictionary in horses.values():
 		for field: String in ["father_id", "mother_id"]:
 			var parent_id: String = h[field]
@@ -114,7 +124,7 @@ static func validate_horse(value: Variant, current_week: int, farm_id: String) -
 	for key: StringName in StatBlock.KEYS:
 		if stats.values[key] > potential.values[key]:
 			return "현재 능력이 잠재 능력을 초과합니다."
-	# Schema 1 predates racing. Never silently accept dangling result IDs.
+	# Racing is not implemented yet. Never silently accept dangling result IDs.
 	if not h.race_result_ids is Array or not h.race_result_ids.is_empty() or h.starts != 0 or h.wins != 0 or h.earnings != 0:
 		return "이 저장 형식은 아직 경주 전적을 지원하지 않습니다."
 	return ""

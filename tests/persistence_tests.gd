@@ -48,7 +48,7 @@ func _codec_checks() -> void:
 	check.call(session.state.owned_horses()[0].stats.values[&"speed"] != 1, "Decoded game owns independent objects")
 	var fixture: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/save_v1.json"))
 	check.call(SaveCodec.decode(fixture).ok, "Checked-in schema v1 fixture remains readable")
-	for version: Variant in [0, 2, 1.5, "1", true]:
+	for version: Variant in [0, GameState.SCHEMA_VERSION + 1, 1.5, "1", true]:
 		var bad := document.duplicate(true)
 		bad.schema_version = version
 		check.call(not SaveCodec.decode(bad).ok, "Unsupported or malformed version rejected: " + str(version))
@@ -119,7 +119,7 @@ func _file_checks() -> void:
 	file.close()
 	check.call(session.recover_backup().ok and FileAccess.get_file_as_bytes(path + ".before-recovery") == PackedByteArray([255, 254, 0, 128]), "Recovery preserves an arbitrary corrupt binary primary exactly")
 	var future: Dictionary = JSON.parse_string(current)
-	future.schema_version = 2
+	future.schema_version = GameState.SCHEMA_VERSION + 1
 	_write(path, _canonical(future))
 	var future_bytes := FileAccess.get_file_as_bytes(path)
 	check.call(not session.load_game().ok and not session.save_game().ok and FileAccess.get_file_as_bytes(path) == future_bytes, "Future-version save is neither loaded nor overwritten")

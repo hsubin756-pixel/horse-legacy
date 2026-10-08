@@ -1,0 +1,15 @@
+{
+  "fatigue_gain": 22.0,
+  "stress_gain": 10.0,
+  "fitness_gain": 2.0,
+  "overwork_fitness_loss": 8.0,
+  "overwork_threshold": 60.0,
+  "injury_max_chance": 0.5,
+  "injury_weeks": 2,
+  "programs": {
+    "sprint": {"speed": 0.6, "acceleration": 0.5},
+    "endurance": {"stamina": 0.9},
+    "hill": {"power": 0.9},
+    "mental": {"spirit": 0.5, "intelligence": 0.6}
+  }
+}

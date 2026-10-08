@@ -4,12 +4,28 @@ extends RefCounted
 signal game_started
 signal horse_selected(horse_id: String)
 signal weeks_advanced(result: Dictionary)
+signal training_changed
 
 var state: GameState
 var selected_horse_id: String = ""
 var saves := SaveManager.new()
 var last_start_error: String = ""
 var _advancing: bool = false
+
+func assign_training(horse_id: String, program: String) -> Dictionary:
+	if _advancing or state == null or not state.player_farm.horse_ids.has(horse_id):
+		return {"ok": false, "message": "훈련을 배정할 수 있는 보유 말을 선택해 주세요."}
+	if not program in TrainingSystem.PROGRAMS:
+		return {"ok": false, "message": "알 수 없는 훈련 종류입니다."}
+	var reason := TrainingSystem.unavailable_reason(state.horses[horse_id])
+	if program != "rest" and not reason.is_empty():
+		return {"ok": false, "message": reason}
+	if program == "rest":
+		state.training_assignments.erase(horse_id)
+	else:
+		state.training_assignments[horse_id] = program
+	training_changed.emit()
+	return {"ok": true, "message": "이번 주 %s 배정 · 저장하지 않은 변경이 있습니다." % TrainingSystem.label_for(program)}
 
 func advance_weeks(weeks: int, expected_week: int = -1) -> Dictionary:
 	if _advancing or (state != null and expected_week >= 0 and expected_week != state.current_week):

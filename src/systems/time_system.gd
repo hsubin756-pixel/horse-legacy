@@ -26,7 +26,7 @@ static func read_rules(path: String = RULES_PATH) -> Dictionary:
 			return {}
 	return parsed
 
-static func advance(state: GameState, selected_id: String, weeks: int, rules_path: String = RULES_PATH) -> Dictionary:
+static func advance(state: GameState, selected_id: String, weeks: int, rules_path: String = RULES_PATH, training_path: String = TrainingSystem.RULES_PATH) -> Dictionary:
 	if state == null:
 		return {"ok": false, "message": "먼저 새 게임을 시작하거나 저장한 목장을 불러와 주세요."}
 	if weeks < 1 or weeks > 52 or state.current_week > SaveSchema.MAX_INTEGER - weeks:
@@ -38,10 +38,22 @@ static func advance(state: GameState, selected_id: String, weeks: int, rules_pat
 	var candidate := SaveCodec.decode(SaveCodec.encode(state, selected_id))
 	if not candidate.ok:
 		return {"ok": false, "message": candidate.message}
+	var training_rules := TrainingSystem.read_rules(training_path)
+	if training_rules.is_empty():
+		return {"ok": false, "message": "훈련 규칙을 읽을 수 없습니다. 프로젝트 파일을 확인해 주세요."}
+	var events: Dictionary = {}
 	for step: int in weeks:
 		candidate.state.current_week += 1
-		for horse: Horse in candidate.state.horses.values():
-			_tick_horse(horse, candidate.state.current_week, rules)
+		# Stable ID order keeps injury RNG independent of save/list ordering.
+		var ids: Array = candidate.state.horses.keys()
+		ids.sort()
+		for horse_id: String in ids:
+			var horse: Horse = candidate.state.horses[horse_id]
+			var program: String = candidate.state.training_assignments.get(horse_id, "rest")
+			var event := _tick_horse(horse, candidate.state.current_week, rules, program, training_rules, candidate.state.rng)
+			if not event.is_empty():
+				events[horse_id] = event
+		candidate.state.training_assignments.clear()
 	var changes: Array[Dictionary] = []
 	for horse: Horse in candidate.state.owned_horses():
 		var previous: Horse = state.horses[horse.id]
@@ -49,6 +61,7 @@ static func advance(state: GameState, selected_id: String, weeks: int, rules_pat
 		for key: StringName in StatBlock.KEYS:
 			gains[key] = horse.stats.values[key] - previous.stats.values[key]
 		changes.append({"horse_id": horse.id, "name": horse.name, "stats": gains,
+			"action": events.get(horse.id, "휴식"),
 			"age_before": previous.age_years(state.current_week), "age_after": horse.age_years(candidate.state.current_week),
 			"matured": previous.life_stage == Horse.LifeStage.FOAL and horse.life_stage == Horse.LifeStage.ADULT,
 			"healed": previous.injury_weeks > 0 and horse.injury_weeks == 0,
@@ -57,9 +70,13 @@ static func advance(state: GameState, selected_id: String, weeks: int, rules_pat
 	return {"ok": true, "message": "%d주가 지났습니다. 저장하지 않은 변경이 있습니다." % weeks,
 		"state": candidate.state, "weeks": weeks, "changes": changes}
 
-static func _tick_horse(horse: Horse, week: int, rules: Dictionary) -> void:
+static func _tick_horse(horse: Horse, week: int, rules: Dictionary, program: String, training_rules: Dictionary, rng: RandomNumberGenerator) -> String:
 	if horse.life_stage == Horse.LifeStage.DECEASED:
-		return
+		return "사망 기록 유지"
+	var event: String = ""
+	if program != "rest" and not TrainingSystem.unavailable_reason(horse).is_empty():
+		event = "훈련 불가로 휴식: " + TrainingSystem.unavailable_reason(horse)
+		program = "rest"
 	var age: int = horse.age_years(week)
 	var profile: Dictionary = rules.growth[str(horse.growth_type)]
 	# Use the condition at the beginning of this week for growth eligibility.
@@ -71,10 +88,16 @@ static func _tick_horse(horse: Horse, week: int, rules: Dictionary) -> void:
 		elif age >= profile.decline_from:
 			delta = -float(rules.weekly_decline)
 		horse.stats.values[key] = clampf(horse.stats.values[key] + delta, 0.0, horse.potential.values[key])
-	# Unassigned horses rest. Training and racing actions are added in later steps.
-	horse.fitness = minf(100.0, horse.fitness + rules.rest_fitness)
-	horse.fatigue = maxf(0.0, horse.fatigue - rules.rest_fatigue)
-	horse.stress = maxf(0.0, horse.stress - rules.rest_stress)
-	horse.injury_weeks = maxi(0, horse.injury_weeks - 1)
+	if program == "rest":
+		horse.fitness = minf(100.0, horse.fitness + rules.rest_fitness)
+		horse.fatigue = maxf(0.0, horse.fatigue - rules.rest_fatigue)
+		horse.stress = maxf(0.0, horse.stress - rules.rest_stress)
+		horse.injury_weeks = maxi(0, horse.injury_weeks - 1)
+	else:
+		var injured := TrainingSystem.apply(horse, program, training_rules, rng)
+		event = TrainingSystem.label_for(program)
+		if injured:
+			event += " · 부상 발생 (%d주 휴식 필요)" % horse.injury_weeks
 	if horse.life_stage == Horse.LifeStage.FOAL and age >= rules.adult_age_years:
 		horse.life_stage = Horse.LifeStage.ADULT
+	return event
