@@ -23,6 +23,7 @@ var pending_file_action: String = ""
 var week_controls: WeekControls
 var startup_error_dialog: AcceptDialog
 var training_controls: TrainingControls
+var race_controls: RaceControls
 
 func _ready() -> void:
 	theme = RanchTheme.create()
@@ -67,6 +68,7 @@ func _ready() -> void:
 	session.game_started.connect(_on_game_started)
 	session.horse_selected.connect(_on_horse_selected)
 	session.weeks_advanced.connect(_on_weeks_advanced)
+	session.race_finished.connect(_on_race_finished)
 	session.training_changed.connect(func() -> void: training_controls.refresh(session.selected_horse(), session.state))
 	_update_file_buttons()
 	start_button.grab_focus()
@@ -141,6 +143,9 @@ func _build_ranch(parent: VBoxContainer) -> void:
 	training_controls = TrainingControls.new()
 	training_controls.assignment_requested.connect(_assign_training)
 	ranch_screen.add_child(training_controls)
+	race_controls = RaceControls.new()
+	race_controls.entry_requested.connect(_enter_race)
+	ranch_screen.add_child(race_controls)
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 24)
 	ranch_screen.add_child(body)
@@ -179,7 +184,7 @@ func _on_game_started() -> void:
 	title_screen.hide()
 	ranch_screen.show()
 	week_controls.refresh(session.state, true)
-	farm_label.text = session.state.player_farm.name
+	farm_label.text = "%s · 자금 %d" % [session.state.player_farm.name, session.state.player_farm.money]
 	var week: int = session.state.current_week
 	date_label.text = "목장 %d년 · %d주  /  보유 말 %d마리" % [floori(float(week) / GameState.WEEKS_PER_YEAR) + 1, week % GameState.WEEKS_PER_YEAR + 1, session.state.player_farm.horse_ids.size()]
 	for child: Node in horse_list.get_children():
@@ -218,7 +223,18 @@ func _select_horse(horse_id: String) -> void:
 func _on_horse_selected(horse_id: String) -> void:
 	details.show_horse(session.selected_horse(), session.state)
 	training_controls.refresh(session.selected_horse(), session.state)
+	race_controls.refresh(session.selected_horse(), session.state)
 	horse_buttons[horse_id].set_pressed_no_signal(true)
+
+func _enter_race(horse_id: String, expected_week: int) -> void:
+	var result := session.enter_race(horse_id, expected_week)
+	error_label.text = result.message
+	error_label.add_theme_color_override("font_color", RanchTheme.GOLD if result.ok else Color("ffc6a0"))
+	error_label.show()
+
+func _on_race_finished(_result: Dictionary) -> void:
+	_on_game_started()
+	_on_horse_selected(session.selected_horse_id)
 
 func _assign_training(horse_id: String, program: String) -> void:
 	var result := session.assign_training(horse_id, program)

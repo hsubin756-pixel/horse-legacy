@@ -5,12 +5,24 @@ signal game_started
 signal horse_selected(horse_id: String)
 signal weeks_advanced(result: Dictionary)
 signal training_changed
+signal race_finished(result: Dictionary)
 
 var state: GameState
 var selected_horse_id: String = ""
 var saves := SaveManager.new()
 var last_start_error: String = ""
 var _advancing: bool = false
+
+func enter_race(horse_id: String, expected_week: int) -> Dictionary:
+	if _advancing or state == null or expected_week != state.current_week:
+		return {"ok": false, "message": "경주 출전 요청이 만료되었거나 이미 처리되었습니다."}
+	_advancing = true
+	var result := RaceSystem.run(state, selected_horse_id, horse_id)
+	if result.ok:
+		state = result.state
+		race_finished.emit(result)
+	_advancing = false
+	return result
 
 func assign_training(horse_id: String, program: String) -> Dictionary:
 	if _advancing or state == null or not state.player_farm.horse_ids.has(horse_id):

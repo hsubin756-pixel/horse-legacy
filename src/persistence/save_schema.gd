@@ -22,6 +22,8 @@ static func validate(value: Variant) -> String:
 	var fields: Array = ["schema_version", "simulation_version", "current_week", "next_id", "rng_seed", "rng_state", "selected_horse_id", "farm", "horses"]
 	if d.schema_version >= 2:
 		fields.append("training_assignments")
+	if d.schema_version >= 3:
+		fields.append("race_results")
 	if not exact_keys(d, fields):
 		return "저장 파일에 필수 항목이 없거나 알 수 없는 항목이 있습니다."
 	if not number(d.current_week, 0, MAX_INTEGER, true) or not number(d.next_id, 1, MAX_INTEGER, true):
@@ -84,7 +86,7 @@ static func validate(value: Variant) -> String:
 			# Strictly increasing birth weeks also prohibit cycles, without recursive traversal.
 			if parent.sex != expected_sex or parent.birth_week >= h.birth_week:
 				return "부모의 성별·생년 또는 혈통 연결이 잘못되었습니다."
-	return ""
+	return RaceRecord.validate_history(d.get("race_results", []), horses, int(d.current_week), int(d.next_id))
 
 static func validate_horse(value: Variant, current_week: int, farm_id: String) -> String:
 	if not value is Dictionary:
@@ -124,9 +126,10 @@ static func validate_horse(value: Variant, current_week: int, farm_id: String) -
 	for key: StringName in StatBlock.KEYS:
 		if stats.values[key] > potential.values[key]:
 			return "현재 능력이 잠재 능력을 초과합니다."
-	# Racing is not implemented yet. Never silently accept dangling result IDs.
-	if not h.race_result_ids is Array or not h.race_result_ids.is_empty() or h.starts != 0 or h.wins != 0 or h.earnings != 0:
-		return "이 저장 형식은 아직 경주 전적을 지원하지 않습니다."
+	if not h.race_result_ids is Array or h.race_result_ids.size() > RaceRecord.MAX_RESULTS:
+		return "말의 경주 기록 목록이 잘못되었습니다."
+	for race_id: Variant in h.race_result_ids:
+		if id_number(race_id, "race") < 1: return "말의 경주 참조 ID가 잘못되었습니다."
 	return ""
 
 static func number(value: Variant, minimum: int, maximum: int, integer: bool = false) -> bool:

@@ -17,6 +17,9 @@ func _initialize() -> void:
 		if not session.assign_training(session.selected_horse_id, "mental").ok:
 			quit(1)
 			return
+		if not session.enter_race(session.selected_horse_id, session.state.current_week).ok or not session.assign_training(session.selected_horse_id, "mental").ok:
+			quit(1)
+			return
 		var result := session.save_game()
 		if not result.ok:
 			push_error(result.message)

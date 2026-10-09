@@ -1,0 +1,13 @@
+{
+  "title": "새벽들 로컬 컵",
+  "distance": 1600,
+  "prizes": [500, 200, 100, 0],
+  "fatigue_gain": 30,
+  "stress_gain": 12,
+  "fitness_loss": 8,
+  "rivals": [
+    {"name": "Copper Wind", "stats": [52, 50, 48, 51, 49, 48]},
+    {"name": "Meadow Bell", "stats": [48, 57, 47, 50, 53, 52]},
+    {"name": "Old Harbor", "stats": [55, 46, 54, 49, 48, 47]}
+  ]
+}

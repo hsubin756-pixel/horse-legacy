@@ -33,8 +33,11 @@ func _run() -> void:
 	time_tests.run(check_result, test_directory)
 	var training_tests = preload("res://tests/training_tests.gd").new()
 	training_tests.run(check_result, test_directory)
+	var race_tests = preload("res://tests/race_tests.gd").new()
+	race_tests.run(check_result, test_directory)
 	await _test_ui()
 	await _test_start_feedback()
+	await _test_race_ui()
 	print("Horse Legacy: %d checks, %d passed, %d failed" % [checks, checks - failures, failures])
 	if failures == 0:
 		for file_name: String in DirAccess.get_files_at(test_directory):
@@ -322,6 +325,37 @@ func _test_persistence_ui(screen: MainScreen) -> void:
 	screen.file_dialog.get_ok_button().pressed.emit()
 	await process_frame
 	check_result(screen.session.state.current_week == 53 and screen.error_label.text.contains("백업"), "Confirmed UI recovery restores the previous save")
+
+func _test_race_ui() -> void:
+	var screen := (load("res://scenes/main.tscn") as PackedScene).instantiate() as MainScreen
+	screen.session.saves = SaveManager.new(test_directory.path_join("race-ui.json"))
+	root.add_child(screen)
+	await process_frame
+	await _click(screen.start_button)
+	await _click(screen.race_controls.entry_button)
+	check_result(screen.race_controls.confirm.visible and screen.session.state.current_week == 0, "Race UI confirms the horse, training replacement and weekly cost")
+	screen.race_controls.confirm.get_cancel_button().pressed.emit()
+	await process_frame
+	check_result(screen.session.state.race_results.is_empty() and screen.session.state.current_week == 0, "Cancel race leaves ranch untouched")
+	await _click(screen.race_controls.entry_button)
+	screen.race_controls.confirm.get_ok_button().pressed.emit()
+	await process_frame
+	check_result(screen.session.state.current_week == 1 and screen.race_controls.result_label.text.contains("4위") and screen.details.career_label.text.contains("1전"), "Confirm race displays real four-runner result and updated career")
+	await _click(screen.save_button)
+	var before := JSON.stringify(SaveCodec.encode(screen.session.state, screen.session.selected_horse_id))
+	await _click(screen.load_button)
+	screen.file_dialog.get_ok_button().pressed.emit()
+	await process_frame
+	check_result(JSON.stringify(SaveCodec.encode(screen.session.state, screen.session.selected_horse_id)) == before and screen.race_controls.result_label.text.contains("최근 경주"), "UI load restores last race result without awarding it again")
+	var scroll := screen.get_child(0) as ScrollContainer
+	scroll.ensure_control_visible(screen.race_controls.result_label)
+	await process_frame
+	await _capture("race-result")
+	screen.session.selected_horse().injury_weeks = 1
+	screen.session.select_horse(screen.session.selected_horse_id)
+	check_result(screen.race_controls.entry_button.disabled and screen.race_controls.summary.text.contains("부상"), "Race UI explains why an injured horse cannot enter")
+	screen.queue_free()
+	await process_frame
 
 func _capture(label: String) -> void:
 	for arg: String in OS.get_cmdline_user_args():

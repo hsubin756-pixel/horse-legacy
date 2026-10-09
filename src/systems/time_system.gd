@@ -26,7 +26,7 @@ static func read_rules(path: String = RULES_PATH) -> Dictionary:
 			return {}
 	return parsed
 
-static func advance(state: GameState, selected_id: String, weeks: int, rules_path: String = RULES_PATH, training_path: String = TrainingSystem.RULES_PATH) -> Dictionary:
+static func advance(state: GameState, selected_id: String, weeks: int, rules_path: String = RULES_PATH, training_path: String = TrainingSystem.RULES_PATH, racing_ids: Array[String] = []) -> Dictionary:
 	if state == null:
 		return {"ok": false, "message": "먼저 새 게임을 시작하거나 저장한 목장을 불러와 주세요."}
 	if weeks < 1 or weeks > 52 or state.current_week > SaveSchema.MAX_INTEGER - weeks:
@@ -50,7 +50,7 @@ static func advance(state: GameState, selected_id: String, weeks: int, rules_pat
 		for horse_id: String in ids:
 			var horse: Horse = candidate.state.horses[horse_id]
 			var program: String = candidate.state.training_assignments.get(horse_id, "rest")
-			var event := _tick_horse(horse, candidate.state.current_week, rules, program, training_rules, candidate.state.rng)
+			var event := _tick_horse(horse, candidate.state.current_week, rules, program, training_rules, candidate.state.rng, step == 0 and horse_id in racing_ids)
 			if not event.is_empty():
 				events[horse_id] = event
 		candidate.state.training_assignments.clear()
@@ -70,7 +70,7 @@ static func advance(state: GameState, selected_id: String, weeks: int, rules_pat
 	return {"ok": true, "message": "%d주가 지났습니다. 저장하지 않은 변경이 있습니다." % weeks,
 		"state": candidate.state, "weeks": weeks, "changes": changes}
 
-static func _tick_horse(horse: Horse, week: int, rules: Dictionary, program: String, training_rules: Dictionary, rng: RandomNumberGenerator) -> String:
+static func _tick_horse(horse: Horse, week: int, rules: Dictionary, program: String, training_rules: Dictionary, rng: RandomNumberGenerator, racing: bool = false) -> String:
 	if horse.life_stage == Horse.LifeStage.DECEASED:
 		return "사망 기록 유지"
 	var event: String = ""
@@ -88,7 +88,9 @@ static func _tick_horse(horse: Horse, week: int, rules: Dictionary, program: Str
 		elif age >= profile.decline_from:
 			delta = -float(rules.weekly_decline)
 		horse.stats.values[key] = clampf(horse.stats.values[key] + delta, 0.0, horse.potential.values[key])
-	if program == "rest":
+	if racing:
+		event = "경주"
+	elif program == "rest":
 		horse.fitness = minf(100.0, horse.fitness + rules.rest_fitness)
 		horse.fatigue = maxf(0.0, horse.fatigue - rules.rest_fatigue)
 		horse.stress = maxf(0.0, horse.stress - rules.rest_stress)

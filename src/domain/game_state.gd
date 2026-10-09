@@ -2,12 +2,13 @@ class_name GameState
 extends RefCounted
 
 const WEEKS_PER_YEAR: int = 52
-const SCHEMA_VERSION: int = 2
-const SIMULATION_VERSION: int = 3
+const SCHEMA_VERSION: int = 3
+const SIMULATION_VERSION: int = 4
 var current_week: int = 0
 var next_id: int = 1
 var horses: Dictionary[String, Horse] = {}
 var training_assignments: Dictionary[String, String] = {}
+var race_results: Array[Dictionary] = []
 var player_farm := Farm.new()
 var rng := RandomNumberGenerator.new()
 
