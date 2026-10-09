@@ -50,6 +50,7 @@ static func run(state: GameState, selected_id: String, horse_id: String, path: S
 	for rank: int in record.finishers.size(): record.finishers[rank].prize = int(rules.prizes[rank])
 	var applied := apply_result(candidate, record)
 	if not applied.ok: return applied
+	candidate.pending_race_result_id = record.id
 	var horse: Horse = candidate.horses[horse_id]
 	horse.fatigue = minf(100.0, horse.fatigue + rules.fatigue_gain)
 	horse.stress = minf(100.0, horse.stress + rules.stress_gain)

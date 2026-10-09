@@ -24,6 +24,8 @@ static func validate(value: Variant) -> String:
 		fields.append("training_assignments")
 	if d.schema_version >= 3:
 		fields.append("race_results")
+	if d.schema_version >= 4:
+		fields.append("pending_race_result_id")
 	if not exact_keys(d, fields):
 		return "저장 파일에 필수 항목이 없거나 알 수 없는 항목이 있습니다."
 	if not number(d.current_week, 0, MAX_INTEGER, true) or not number(d.next_id, 1, MAX_INTEGER, true):
@@ -86,7 +88,12 @@ static func validate(value: Variant) -> String:
 			# Strictly increasing birth weeks also prohibit cycles, without recursive traversal.
 			if parent.sex != expected_sex or parent.birth_week >= h.birth_week:
 				return "부모의 성별·생년 또는 혈통 연결이 잘못되었습니다."
-	return RaceRecord.validate_history(d.get("race_results", []), horses, int(d.current_week), int(d.next_id))
+	var history_reason := RaceRecord.validate_history(d.get("race_results", []), horses, int(d.current_week), int(d.next_id))
+	if not history_reason.is_empty(): return history_reason
+	if d.schema_version >= 4:
+		if not text(d.pending_race_result_id, true): return "확인할 경주 결과 ID가 잘못되었습니다."
+		if not d.pending_race_result_id.is_empty() and (d.race_results.is_empty() or d.race_results.back().id != d.pending_race_result_id): return "확인할 경주 결과를 찾을 수 없습니다."
+	return ""
 
 static func validate_horse(value: Variant, current_week: int, farm_id: String) -> String:
 	if not value is Dictionary:

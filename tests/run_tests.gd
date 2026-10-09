@@ -35,6 +35,8 @@ func _run() -> void:
 	training_tests.run(check_result, test_directory)
 	var race_tests = preload("res://tests/race_tests.gd").new()
 	race_tests.run(check_result, test_directory)
+	var replay_tests = preload("res://tests/replay_tests.gd").new()
+	replay_tests.run(check_result, test_directory)
 	await _test_ui()
 	await _test_start_feedback()
 	await _test_race_ui()
@@ -340,17 +342,49 @@ func _test_race_ui() -> void:
 	await _click(screen.race_controls.entry_button)
 	screen.race_controls.confirm.get_ok_button().pressed.emit()
 	await process_frame
-	check_result(screen.session.state.current_week == 1 and screen.race_controls.result_label.text.contains("4위") and screen.details.career_label.text.contains("1전"), "Confirm race displays real four-runner result and updated career")
-	await _click(screen.save_button)
+	check_result(screen.session.state.current_week == 1 and screen.replay.visible and not screen.replay.playback.finished and screen.details.career_label.text.contains("1전"), "Confirm race opens moving replay after committing career once")
+	await _click(screen.replay.pause_button)
+	var elapsed: float = screen.replay.playback.elapsed
+	await process_frame
+	check_result(screen.replay.playback.paused and screen.replay.playback.elapsed == elapsed and screen.replay.return_button.disabled, "Replay pause freezes movement and result acknowledgement waits for finish")
+	await _click(screen.replay.speeds[8])
+	check_result(screen.replay.playback.speed == 8 and screen.replay.speeds[8].button_pressed, "Replay speed button selects eight-times playback")
+	screen.replay.playback.elapsed = screen.replay.playback.duration * 0.6
+	screen.replay.refresh()
+	await _capture("race-replay")
+	await _click(screen.replay.save_button)
+	check_result(screen.session.saves.has_save() and screen.replay.status_label.text == "저장했습니다.", "Save during playback reports success on race screen")
 	var before := JSON.stringify(SaveCodec.encode(screen.session.state, screen.session.selected_horse_id))
+	await _click(screen.replay.save_button)
+	check_result(screen.file_dialog.visible, "Replay overwrite still requires confirmation")
+	screen.file_dialog.get_cancel_button().pressed.emit()
+	await process_frame
+	check_result(screen.replay.visible and screen.replay.playback.paused, "Cancel overwrite keeps replay paused and usable")
+	await _click(screen.replay.skip_button)
+	check_result(screen.replay.playback.finished and screen.replay.standings.text.contains("4위") and not screen.replay.return_button.disabled, "Skip displays the committed final result and enables return")
+	await _click(screen.replay.load_button)
+	screen.file_dialog.get_ok_button().pressed.emit()
+	await process_frame
+	check_result(JSON.stringify(SaveCodec.encode(screen.session.state, screen.session.selected_horse_id)) == before and screen.replay.visible and screen.replay.playback.finished, "Loading mid-replay save opens final result without awarding it again")
+	await _capture("race-result")
+	var race_path: String = screen.session.saves.path
+	screen.queue_free()
+	await process_frame
+	screen = (load("res://scenes/main.tscn") as PackedScene).instantiate() as MainScreen
+	screen.session.saves = SaveManager.new(race_path)
+	root.add_child(screen)
+	await process_frame
+	await _click(screen.continue_button)
+	check_result(screen.replay.visible and screen.replay.playback.finished and screen.replay.playback.frames.is_empty(), "Fresh game instance continues pending save directly at result screen")
+	await _click(screen.replay.return_button)
+	check_result(not screen.replay.visible and screen.session.state.pending_race_result_id.is_empty() and screen.ranch_screen.is_visible_in_tree(), "Acknowledging result returns to usable ranch and clears pending marker")
+	await _click(screen.save_button)
+	screen.file_dialog.get_ok_button().pressed.emit()
+	await process_frame
 	await _click(screen.load_button)
 	screen.file_dialog.get_ok_button().pressed.emit()
 	await process_frame
-	check_result(JSON.stringify(SaveCodec.encode(screen.session.state, screen.session.selected_horse_id)) == before and screen.race_controls.result_label.text.contains("최근 경주"), "UI load restores last race result without awarding it again")
-	var scroll := screen.get_child(0) as ScrollContainer
-	scroll.ensure_control_visible(screen.race_controls.result_label)
-	await process_frame
-	await _capture("race-result")
+	check_result(not screen.replay.visible and screen.session.selected_horse().starts == 1, "Loading acknowledged save remains at ranch with one career start")
 	screen.session.selected_horse().injury_weeks = 1
 	screen.session.select_horse(screen.session.selected_horse_id)
 	check_result(screen.race_controls.entry_button.disabled and screen.race_controls.summary.text.contains("부상"), "Race UI explains why an injured horse cannot enter")

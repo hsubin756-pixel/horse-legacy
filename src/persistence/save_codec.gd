@@ -27,6 +27,7 @@ static func encode(state: GameState, selected_id: String) -> Dictionary:
 		"horses": horse_data,
 		"training_assignments": state.training_assignments.duplicate(),
 		"race_results": state.race_results.duplicate(true),
+		"pending_race_result_id": state.pending_race_result_id,
 	}
 
 static func decode(value: Variant) -> SaveResult:
@@ -36,6 +37,7 @@ static func decode(value: Variant) -> SaveResult:
 	var d: Dictionary = value
 	var state := GameState.new()
 	state.current_week = int(d.current_week)
+	state.pending_race_result_id = d.get("pending_race_result_id", "")
 	if d.schema_version >= 3:
 		for record: Dictionary in d.race_results:
 			state.race_results.append(RaceRecord.decode(record))

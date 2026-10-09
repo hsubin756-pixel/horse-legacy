@@ -13,6 +13,12 @@ var saves := SaveManager.new()
 var last_start_error: String = ""
 var _advancing: bool = false
 
+func acknowledge_race_result(race_id: String) -> bool:
+	if state == null or race_id.is_empty() or state.pending_race_result_id != race_id:
+		return false
+	state.pending_race_result_id = ""
+	return true
+
 func enter_race(horse_id: String, expected_week: int) -> Dictionary:
 	if _advancing or state == null or expected_week != state.current_week:
 		return {"ok": false, "message": "경주 출전 요청이 만료되었거나 이미 처리되었습니다."}

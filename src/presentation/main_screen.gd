@@ -24,6 +24,7 @@ var week_controls: WeekControls
 var startup_error_dialog: AcceptDialog
 var training_controls: TrainingControls
 var race_controls: RaceControls
+var replay: RaceReplay
 
 func _ready() -> void:
 	theme = RanchTheme.create()
@@ -65,7 +66,12 @@ func _ready() -> void:
 	startup_error_dialog = AcceptDialog.new()
 	startup_error_dialog.title = "새 게임을 시작하지 못했습니다"
 	add_child(startup_error_dialog)
-	session.game_started.connect(_on_game_started)
+	replay = RaceReplay.new()
+	add_child(replay)
+	replay.save_requested.connect(_request_file_action.bind("save"))
+	replay.load_requested.connect(_request_file_action.bind("load"))
+	replay.closed.connect(_close_replay)
+	session.game_started.connect(_on_session_started)
 	session.horse_selected.connect(_on_horse_selected)
 	session.weeks_advanced.connect(_on_weeks_advanced)
 	session.race_finished.connect(_on_race_finished)
@@ -179,6 +185,8 @@ func _start_game() -> void:
 		print("Horse Legacy: ranch opened")
 
 func _on_game_started() -> void:
+	replay.hide()
+	get_child(0).show()
 	error_label.hide()
 	_update_file_buttons()
 	title_screen.hide()
@@ -232,9 +240,25 @@ func _enter_race(horse_id: String, expected_week: int) -> void:
 	error_label.add_theme_color_override("font_color", RanchTheme.GOLD if result.ok else Color("ffc6a0"))
 	error_label.show()
 
-func _on_race_finished(_result: Dictionary) -> void:
+func _on_race_finished(result: Dictionary) -> void:
 	_on_game_started()
 	_on_horse_selected(session.selected_horse_id)
+	get_child(0).hide()
+	replay.start(result)
+
+func _on_session_started() -> void:
+	_on_game_started()
+	if not session.state.pending_race_result_id.is_empty():
+		get_child(0).hide()
+		replay.show_result(session.state.race_results.back())
+
+func _close_replay(race_id: String) -> void:
+	if not replay.playback.finished or not session.acknowledge_race_result(race_id): return
+	replay.hide()
+	get_child(0).show()
+	error_label.text = "경주 결과를 확인했습니다. 종료 전 저장해 주세요."
+	error_label.show()
+	race_controls.entry_button.grab_focus()
 
 func _assign_training(horse_id: String, program: String) -> void:
 	var result := session.assign_training(horse_id, program)
@@ -249,8 +273,12 @@ func _update_file_buttons() -> void:
 	save_button.disabled = session.state == null
 	recovery_button.disabled = not session.saves.has_backup()
 	title_recovery_button.disabled = not session.saves.has_backup()
+	replay.load_button.disabled = not session.saves.has_save()
 
 func _request_file_action(action: String) -> void:
+	if replay.visible:
+		replay.playback.paused = true
+		replay.refresh()
 	pending_file_action = action
 	if action == "save" and session.saves.has_save():
 		file_dialog.title = "저장 덮어쓰기"
@@ -281,3 +309,5 @@ func _perform_file_action() -> void:
 	error_label.add_theme_color_override("font_color", RanchTheme.GOLD if result.ok else Color("ffc6a0"))
 	error_label.text = result.message if not result.message.is_empty() else "저장한 목장을 불러왔습니다."
 	error_label.show()
+	if replay.visible:
+		replay.status_label.text = error_label.text

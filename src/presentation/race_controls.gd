@@ -50,5 +50,5 @@ func _request() -> void:
 	if entry_button.disabled: return
 	_pending_id = _horse_id
 	_pending_week = _week
-	confirm.dialog_text = summary.text + "\n출전마는 이번 주 훈련·휴식 회복 없이 경주 피로를 받습니다.\n경주는 자동 계산되며 착순과 상금을 즉시 반영합니다. 계속할까요?"
+	confirm.dialog_text = summary.text + "\n출전마는 이번 주 훈련·휴식 회복 없이 경주 피로를 받습니다.\n자동 경주 화면으로 이동합니다. 계속할까요?"
 	confirm.popup_centered(Vector2i(660, 250))
